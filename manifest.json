@@ -1,0 +1,12 @@
+{
+    "display_name": "F2B 前端转后端",
+    "loading_order": -50,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "f2b",
+    "version": "1.0.0",
+    "homePage": "",
+    "auto_update": false
+}

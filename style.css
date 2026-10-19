@@ -1,0 +1,1060 @@
+/* F2B —— 悬浮球 + 后端 API 配置面板
+   设计要点：
+   1) 半透明玻璃态：面板底色用半透明 + backdrop-filter，背后聊天内容仍可见；
+   2) 排版稳健：所有行用 grid[标签|内容]，内容列 minmax(0,1fr) + min-width:0，
+      长地址/长模型名一律省略号，绝不把卡片撑宽或挤出面板；
+   3) 所有尺寸用变量收口，方便后续微调。 */
+
+.f2b-panel,
+.f2b-ball,
+.f2b-drawer {
+    --f2b-radius: 14px;
+    --f2b-glass: rgba(14, 17, 24, 0.72);
+    --f2b-glass-strong: rgba(14, 17, 24, 0.86);
+    --f2b-glass-soft: rgba(255, 255, 255, 0.06);
+    --f2b-line: rgba(255, 255, 255, 0.14);
+    --f2b-line-soft: rgba(255, 255, 255, 0.08);
+    --f2b-fg: var(--SmartThemeBodyColor, #e9edf5);
+    --f2b-accent: #63b3ed;
+    --f2b-ok: #7bd88f;
+    --f2b-warn: #ecc94b;
+    --f2b-bad: #ff8a8a;
+    --f2b-label-w: 74px;
+}
+
+/* ---------------- 悬浮球 ---------------- */
+
+.f2b-ball {
+    position: fixed;
+    top: calc(var(--topBarBlockSize, 44px) + 14px);
+    left: 12px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    margin: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.78), rgba(29, 78, 216, 0.6));
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    backdrop-filter: blur(8px) saturate(140%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    touch-action: none;
+    user-select: none;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s ease;
+}
+
+.f2b-ball:hover {
+    transform: scale(1.06);
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.92), rgba(29, 78, 216, 0.74));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.f2b-ball:active,
+.f2b-ball.f2b-dragging {
+    cursor: grabbing;
+    transform: scale(1.02);
+}
+
+.f2b-ball.f2b-ball-active {
+    box-shadow: 0 0 0 3px rgba(120, 190, 255, 0.45), 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.f2b-ball > i {
+    font-size: 18px;
+    pointer-events: none;
+}
+
+.f2b-badge {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: #e53e3e;
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+/* ---------------- 面板外壳 ---------------- */
+
+.f2b-panel {
+    position: fixed;
+    top: calc(var(--topBarBlockSize, 44px) + 14px);
+    left: 64px;
+    display: none;
+    flex-direction: column;
+    width: clamp(340px, 34vw, 500px);
+    min-width: 320px;
+    min-height: 220px;
+    max-width: calc(100vw - 24px);
+    max-height: min(80vh, 860px);
+    border-radius: var(--f2b-radius);
+    border: 1px solid var(--f2b-line);
+    background: var(--f2b-glass);
+    -webkit-backdrop-filter: blur(18px) saturate(130%);
+    backdrop-filter: blur(18px) saturate(130%);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    color: var(--f2b-fg);
+    font-size: 12.5px;
+    line-height: 1.5;
+    overflow: hidden;
+}
+
+.f2b-panel.f2b-panel-open {
+    display: flex;
+}
+
+.f2b-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--f2b-line-soft);
+    background: var(--f2b-glass-strong);
+    cursor: move;
+    user-select: none;
+    touch-action: none;
+}
+
+.f2b-panel-title {
+    flex: 0 0 auto;
+    min-width: 0;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.f2b-panel-title > i {
+    margin-right: 5px;
+    color: var(--f2b-accent);
+}
+
+.f2b-panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.f2b-backend {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 220px;
+    font-size: 11px;
+    opacity: 0.85;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.f2b-backend code {
+    font-size: 11px;
+}
+
+.f2b-dot {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #888;
+}
+
+.f2b-dot-ok { background: #48bb78; }
+.f2b-dot-warn { background: #ecc94b; }
+.f2b-dot-bad { background: #e53e3e; }
+
+.f2b-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.f2b-icon-btn:hover {
+    background: var(--f2b-glass-soft);
+    opacity: 1;
+}
+
+.f2b-icon-btn.f2b-del:hover {
+    background: rgba(229, 62, 62, 0.22);
+    color: var(--f2b-bad);
+}
+
+/* 汇总行：整行完整显示（信息类文本不裁切），窄屏时允许换行 */
+.f2b-panel-sub {
+    padding: 6px 12px;
+    font-size: 11px;
+    line-height: 1.45;
+    border-bottom: 1px solid var(--f2b-line-soft);
+    background: rgba(255, 255, 255, 0.03);
+    opacity: 0.9;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.f2b-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.f2b-panel-body::-webkit-scrollbar,
+.f2b-model-list::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.f2b-panel-body::-webkit-scrollbar-thumb,
+.f2b-model-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+}
+
+.f2b-panel-body::-webkit-scrollbar-track,
+.f2b-model-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.f2b-panel-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+    padding: 8px 12px;
+    border-top: 1px solid var(--f2b-line-soft);
+    background: var(--f2b-glass-strong);
+    font-size: 11px;
+}
+
+.f2b-panel-foot > .f2b-dim {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* 右下角缩放把手：两根斜线，和酒馆里其他可拖拽控件一个感觉 */
+.f2b-foot-grip {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    opacity: 0.55;
+    cursor: nwse-resize;
+    touch-action: none;
+    background-image: linear-gradient(135deg, transparent 0 45%, currentColor 45% 55%, transparent 55% 72%, currentColor 72% 82%, transparent 82%);
+    background-size: 100% 100%;
+    border-radius: 3px;
+}
+
+.f2b-foot-grip:hover {
+    opacity: 0.95;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.f2b-panel.f2b-resizing {
+    user-select: none;
+}
+
+.f2b-panel.f2b-resizing .f2b-panel-body {
+    pointer-events: none;
+}
+
+.f2b-dim {
+    opacity: 0.65;
+}
+
+/* ---------------- 配置卡片 ---------------- */
+
+.f2b-card {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 9px 10px;
+    border-radius: 11px;
+    border: 1px solid var(--f2b-line-soft);
+    background: rgba(0, 0, 0, 0.22);
+}
+
+.f2b-card.f2b-card-off {
+    opacity: 0.62;
+}
+
+.f2b-card-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-width: 0;
+}
+
+.f2b-card-source {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 6px;
+    flex: 1 1 200px;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.f2b-src-icon {
+    flex: 0 0 auto;
+    color: var(--f2b-accent);
+    font-size: 12px;
+}
+
+.f2b-src-text {
+    flex: 1 1 auto;
+    min-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.f2b-tag {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    border: 1px solid var(--f2b-line);
+    font-size: 10px;
+    line-height: 15px;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.f2b-tag-ok {
+    border-color: rgba(72, 187, 120, 0.6);
+    color: var(--f2b-ok);
+}
+
+.f2b-tag-warn {
+    border-color: rgba(236, 201, 75, 0.6);
+    color: var(--f2b-warn);
+}
+
+.f2b-tag-bad {
+    border-color: rgba(229, 62, 62, 0.6);
+    color: var(--f2b-bad);
+}
+
+.f2b-card-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+/* 开关 */
+.f2b-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.f2b-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+
+.f2b-switch span {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    transition: background 0.15s ease;
+}
+
+.f2b-switch span::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+}
+
+.f2b-switch input:checked + span {
+    background: rgba(72, 187, 120, 0.85);
+}
+
+.f2b-switch input:checked + span::after {
+    transform: translateX(14px);
+}
+
+/* 表单行：标签 | 内容，内容列可收缩 */
+.f2b-row {
+    display: grid;
+    grid-template-columns: var(--f2b-label-w) minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    min-width: 0;
+}
+
+.f2b-row-wide {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 4px;
+}
+
+.f2b-row-wide > .f2b-label {
+    padding-top: 2px;
+}
+
+.f2b-label {
+    font-size: 11px;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.f2b-label > i {
+    margin-left: 3px;
+    font-size: 10px;
+}
+
+/* 面板内的输入控件全部按内容列宽度自适应 */
+.f2b-card input.text_pole,
+.f2b-card select.text_pole,
+.f2b-card textarea.text_pole {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 !important;
+    box-sizing: border-box;
+    min-height: 27px;
+    height: auto;
+    font-size: 12px;
+    padding: 4px 7px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid var(--f2b-line-soft);
+    color: inherit;
+}
+
+.f2b-card textarea.text_pole {
+    resize: vertical;
+    line-height: 1.45;
+    font-family: var(--monoFontFamily, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+
+.f2b-card input.text_pole:focus,
+.f2b-card select.text_pole:focus,
+.f2b-card textarea.text_pole:focus {
+    border-color: rgba(99, 179, 237, 0.55);
+    outline: none;
+}
+
+/* 模型行：输入框 + 拉取模型按钮 */
+.f2b-model-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.f2b-model-wrap > input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.menu_button.f2b-fetch-models {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 3px 8px;
+    font-size: 11px;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+/* 模型列表 */
+.f2b-model-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 4px;
+    max-height: min(190px, 34vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px;
+    border-radius: 9px;
+    border: 1px solid var(--f2b-line-soft);
+    background: rgba(0, 0, 0, 0.3);
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.f2b-model-list[hidden],
+.f2b-model-dead[hidden],
+.f2b-model-more[hidden] {
+    display: none;
+}
+
+.f2b-model-head,
+.f2b-model-dead,
+.f2b-model-hint,
+.f2b-model-more {
+    flex: 0 0 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.f2b-model-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 2px 2px;
+    font-size: 11px;
+}
+
+.f2b-model-item {
+    flex: 0 1 auto;
+    max-width: 100%;
+    padding: 3px 7px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--f2b-glass-soft);
+    color: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.f2b-model-item:hover {
+    background: rgba(120, 190, 255, 0.18);
+}
+
+.f2b-model-item.f2b-model-current {
+    box-shadow: inset 0 0 0 1px rgba(120, 200, 120, 0.6);
+}
+
+.f2b-model-item.f2b-model-off {
+    opacity: 0.55;
+}
+
+.f2b-model-tag {
+    margin-left: 6px;
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.f2b-model-close,
+.f2b-model-more {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0.75;
+}
+
+.f2b-model-close:hover,
+.f2b-model-more:hover {
+    background: var(--f2b-glass-soft);
+    opacity: 1;
+}
+
+.f2b-model-more {
+    align-self: flex-start;
+}
+
+.f2b-model-dead {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.f2b-model-hint {
+    padding: 2px;
+    font-size: 10.5px;
+    line-height: 1.5;
+    opacity: 0.65;
+    white-space: normal;
+}
+
+/* 高级区 */
+.f2b-adv {
+    font-size: 12px;
+    border-top: 1px dashed var(--f2b-line-soft);
+    padding-top: 4px;
+}
+
+.f2b-adv > summary {
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.75;
+    padding: 2px 0;
+    list-style: none;
+}
+
+.f2b-adv > summary::-webkit-details-marker {
+    display: none;
+}
+
+.f2b-adv > summary::before {
+    content: '\25B8';
+    display: inline-block;
+    margin-right: 5px;
+    transition: transform 0.15s ease;
+}
+
+.f2b-adv[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.f2b-adv-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+}
+
+.f2b-adv-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 6px;
+    font-size: 10px;
+    opacity: 0.6;
+    overflow-wrap: anywhere;
+}
+
+/* 卡片底部：状态 + 保存 / 测试 */
+.f2b-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 2px;
+    min-width: 0;
+}
+
+.f2b-card-foot > button {
+    flex: 0 0 auto;
+    margin: 0;
+    min-height: 26px;
+    font-size: 12px;
+    padding: 3px 10px;
+    white-space: nowrap;
+}
+
+.f2b-card-status {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.f2b-status-ok { color: var(--f2b-ok); opacity: 1; }
+.f2b-status-bad { color: var(--f2b-bad); opacity: 1; }
+.f2b-status-busy { color: var(--f2b-warn); opacity: 1; }
+
+/* ---------------- 空态 / 疑似项 ---------------- */
+
+.f2b-empty {
+    padding: 22px 10px;
+    text-align: center;
+    font-size: 12px;
+    opacity: 0.7;
+    line-height: 1.7;
+}
+
+.f2b-suggest {
+    font-size: 12px;
+    border-radius: 9px;
+    border: 1px dashed var(--f2b-line);
+    padding: 6px 8px;
+}
+
+/* 折叠区：标题行（左：标题，可点开/收起）+ 右侧一键删除按钮 */
+.f2b-suggest > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.85;
+    list-style: none;
+    min-height: 20px;
+}
+
+.f2b-suggest > summary::-webkit-details-marker { display: none; }
+
+/* 自己画三角，保证 flex 布局下也看得见展开状态 */
+.f2b-suggest > summary::before {
+    content: '▸';
+    flex: 0 0 auto;
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+.f2b-suggest[open] > summary::before { content: '▾'; }
+
+.f2b-suggest-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.f2b-suggest-title > .f2b-dim {
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+/* 标题右侧的一键删除：小号描边按钮，悬停变危险色 */
+.f2b-clear {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    padding: 2px 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    border-radius: 6px;
+    border: 1px solid var(--f2b-line);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+
+.f2b-clear:hover {
+    border-color: var(--f2b-bad);
+    color: var(--f2b-bad);
+    background: rgba(255, 105, 105, 0.14);
+    opacity: 1;
+}
+
+/* 折叠区内容容器 */
+.f2b-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 6px;
+    min-width: 0;
+}
+
+/* “已转换”就是主列表：实线边框、无底色，里面再放卡片也不至于套娃太花 */
+.f2b-suggest[data-section='entries'] {
+    border-style: solid;
+    background: transparent;
+    padding: 6px 8px 8px;
+}
+
+.f2b-suggest[data-section='entries'] > summary {
+    opacity: 1;
+    font-size: 11.5px;
+}
+
+/* 同源分组：同一插件 / 同一张人物卡下的多条 API，在「已转换」里再折一层 */
+.f2b-suggest[data-group] {
+    border-style: dashed;
+    padding: 5px 8px 6px;
+    background: transparent;
+}
+
+.f2b-suggest[data-group] > summary {
+    font-size: 10.5px;
+    opacity: 0.9;
+}
+
+/* 分组里的卡片间距略紧一点，层次才看得出来 */
+.f2b-suggest[data-group] > .f2b-section-body {
+    gap: 6px;
+}
+
+.f2b-suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    min-width: 0;
+}
+
+.f2b-suggest-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 1px;
+}
+
+.f2b-suggest-text > code,
+.f2b-suggest-text > .f2b-dim {
+    font-size: 10px;
+    opacity: 0.75;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.f2b-suggest-item > button[data-act="restore"] {
+    padding: 3px 7px;
+    font-size: 11px;
+}
+
+.f2b-suggest-item > button {
+    flex: 0 0 auto;
+    margin: 0;
+    font-size: 11px;
+    padding: 3px 8px;
+    white-space: nowrap;
+}
+
+/* 墓碑（已忽略 / 已恢复直连）条目：来源名 + 类型徽标同一行 */
+.f2b-tomb-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.f2b-tomb-line > .f2b-src-text {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+/* 疑似项：转为后端 + 删除（忽略）两个按钮并排 */
+.f2b-suggest-item > .f2b-icon-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    font-size: 11px;
+}
+
+/* ---------------- 删除确认对话框（酒馆弹窗内） ---------------- */
+
+/* 弹窗正文默认居中、宽度固定 500px，长地址会被拆得很难看；
+   这里改成左对齐的「标题 + 两列信息 + 说明」结构。 */
+.f2b-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.55;
+    box-sizing: border-box;
+    --f2b-dialog-line: rgba(255, 255, 255, 0.14);
+    --f2b-dialog-bg: rgba(0, 0, 0, 0.22);
+}
+
+.f2b-dialog,
+.f2b-dialog * {
+    box-sizing: border-box;
+}
+
+.f2b-dialog-title {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.f2b-dialog-rows {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 5px 8px;
+    padding: 8px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--f2b-dialog-line);
+    background: var(--f2b-dialog-bg);
+}
+
+.f2b-dialog-key {
+    font-size: 11px;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.f2b-dialog-val {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.f2b-dialog-val > code {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+}
+
+.f2b-dialog-note {
+    font-size: 11.5px;
+    line-height: 1.6;
+    opacity: 0.85;
+}
+
+.f2b-dialog-note > b {
+    color: #ecc94b;
+}
+
+/* ---------------- 确认弹窗底部按钮 ---------------- */
+
+/* 酒馆的 #dialogue_popup 固定 500px 宽，底部两个按钮靠 gap:20px 排一行；
+   确认文字一长（“删除并回到前端”）就互相挤压、被弹窗的 overflow:hidden 裁掉。
+   这里改成可换行的等宽按钮行，窄屏时自动两行。 */
+.f2b-popup #dialogue_popup_holder {
+    height: auto;
+}
+
+.f2b-popup #dialogue_popup_text {
+    height: auto;
+    max-height: 62vh;
+}
+
+.f2b-popup #dialogue_popup_controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px 12px;
+    align-self: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    padding: 0 6px 8px;
+}
+
+.f2b-popup #dialogue_popup_controls > .menu_button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 120px;
+    min-width: 0;
+    max-width: 220px;
+    margin: 0;
+    padding: 8px 12px;
+    min-height: 34px;
+    box-sizing: border-box;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------------- 扩展设置抽屉 ---------------- */
+
+/* 扩展设置里这一块完全用酒馆标准的 .inline-drawer 结构：
+   标题栏由 ST 的 #extensions_settings2 规则上色，内容区默认 display:none（和其他插件一样默认收起），
+   行距交给 ST 的 .flex-container（gap:5px），所以这里只留一行小字说明的样式。 */
+/* 两个按钮按文字宽度自然排列、左对齐：
+   只把酒馆 .menu_button 的 width:min-content / margin:5px 0 改掉（那样会一大一小、上下错位），
+   字号、内距、配色仍用酒馆默认，所以看起来和其他插件的按钮一样。 */
+.f2b-drawer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.f2b-drawer-actions > .menu_button {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.f2b-drawer-hint {
+    font-size: 11px;
+    opacity: 0.7;
+    overflow-wrap: anywhere;
+}
+
+/* ---------------- 窄屏 ---------------- */
+
+@media (max-width: 720px) {
+    .f2b-panel {
+        width: calc(100vw - 16px);
+        left: 8px !important;
+        top: calc(var(--topBarBlockSize, 44px) + 8px) !important;
+        max-height: 74vh;
+    }
+
+    .f2b-src-text {
+        max-width: none;
+    }
+
+    .f2b-backend {
+        max-width: 110px;
+    }
+}
+
+/* 浏览器不支持 backdrop-filter 时提高不透明度，保证可读性 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .f2b-panel {
+        background: rgba(14, 17, 24, 0.94);
+    }
+
+    .f2b-ball {
+        background: linear-gradient(160deg, #3b82f6, #1d4ed8);
+    }
+}
