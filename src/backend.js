@@ -19,6 +19,10 @@ import { safeJsonParse } from './util.js';
 export const PLUGIN_ID = 'f2b-takeover';
 /** 服务端插件路由前缀。 */
 export const PLUGIN_BASE = `/api/plugins/${PLUGIN_ID}`;
+/** 仓库地址：前端扩展与服务端插件共用同一个仓库，装哪边都是同一份代码。 */
+export const REPO_URL = 'https://github.com/gbfh456/f2b.git';
+/** 在酒馆根目录执行这一条命令即可装上服务端插件（克隆到 plugins/f2b）。 */
+export const INSTALL_COMMAND = `node plugins.js install ${REPO_URL}`;
 
 /** @type {{state: 'unknown'|'ready'|'missing'|'forbidden'|'error', version: string, error: string, node: string}} */
 const backendInfo = { state: 'unknown', version: '', error: '', node: '' };

@@ -220,6 +220,73 @@
     word-break: break-word;
 }
 
+/* 后端插件没装时的安装提示：整块贴在面板顶部，命令可选中复制 */
+.f2b-install-hint {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--f2b-line-soft);
+    background: rgba(236, 201, 75, 0.1);
+    border-left: 3px solid var(--f2b-warn);
+    font-size: 11px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.f2b-install-hint[hidden] {
+    display: none;
+}
+
+.f2b-hint-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--f2b-warn);
+    margin-bottom: 4px;
+}
+
+.f2b-hint-line {
+    color: var(--f2b-fg);
+    opacity: 0.9;
+}
+
+.f2b-hint-line code {
+    padding: 0 3px;
+    border-radius: 4px;
+    background: var(--f2b-glass-soft);
+}
+
+.f2b-hint-cmd {
+    margin: 6px 0;
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--f2b-line);
+    background: rgba(0, 0, 0, 0.35);
+    user-select: all;
+    -webkit-user-select: all;
+}
+
+.f2b-hint-cmd code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--f2b-accent);
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: none;
+    padding: 0;
+}
+
+.f2b-hint-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0;
+}
+
+.f2b-hint-actions .menu_button {
+    margin: 0;
+    font-size: 11px;
+    padding: 4px 9px;
+}
+
 .f2b-panel-body {
     display: flex;
     flex-direction: column;

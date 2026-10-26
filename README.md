@@ -4,8 +4,9 @@
 「插件」和「人物卡」里的前端 API 配置，自动转换成走后端的配置（密钥存服务端、请求由
 SillyTavern 服务端转发），并在酒馆页面左上角的悬浮球里统一管理。
 
-> 本目录是**前端扩展**（放进 `public/scripts/extensions/third-party/`）。
-> 后端搭档是**服务端插件** `<SillyTavern>/plugins/f2b-takeover/`，两者必须一起使用。
+> 本仓库**一份代码两个身份**：前端扩展（装到 `public/scripts/extensions/third-party/`）
+> 与服务端插件 `f2b-takeover`（装到 `<SillyTavern>/plugins/`）。两边装的是**同一个仓库、同一个 commit**，
+> 不会出现前后端版本不一致。安装只需要两条命令/操作，见下一节。
 
 ---
 
@@ -38,18 +39,44 @@ SillyTavern 服务端转发），并在酒馆页面左上角的悬浮球里统�
 
 ## 二、安装
 
-1. **前端扩展**：把 `f2b` 整个文件夹放到
-   `<SillyTavern>/public/scripts/extensions/third-party/`（本目录即在位）。
-2. **服务端插件**：把 `f2b-takeover` 整个文件夹放到 `<SillyTavern>/plugins/`，
-   并在 `config.yaml` 里确认：
+仓库 root **同时是**前端扩展与服务端插件：`manifest.json` + `frontend.js` + `src/` 由浏览器加载，
+`index.mjs` + `proxy.mjs` + `store.mjs` 由酒馆的插件加载器加载（加载器按
+`index.js → index.cjs → index.mjs` 探测，所以前端入口改名 `frontend.js`，两份互不打扰）。
+两条安装都指向**同一个仓库地址**，装完是同一个 commit。
+
+1. **前端扩展**：酒馆界面「扩展 → 安装扩展」填 `https://github.com/gbfh456/f2b.git`，
+   或者手动克隆到 `public/scripts/extensions/third-party/f2b/`：
+
+   ```bash
+   git clone https://github.com/gbfh456/f2b.git public/scripts/extensions/third-party/f2b
+   ```
+
+2. **服务端插件**：在**酒馆根目录**执行（克隆到 `plugins/f2b/`，不需要手动拷文件）：
+
+   ```bash
+   node plugins.js install https://github.com/gbfh456/f2b.git
+   ```
+
+   等价于 `git clone https://github.com/gbfh456/f2b.git plugins/f2b`。
+   目录名随意：插件 id 由 `index.mjs` 里的 `info.id` 决定，路由恒为 `/api/plugins/f2b-takeover`。
+
+3. 确认 `config.yaml`：
 
    ```yaml
    enableServerPlugins: true
+   enableServerPluginsAutoUpdate: true   # plugins/f2b 是 git 克隆，启动时自动 pull
    ```
 
-3. 重启 SillyTavern，刷新页面（必要时 Ctrl+F5 清缓存）。控制台出现
-   `Initializing plugin from .../plugins/f2b-takeover/index.mjs` 且面板显示「后端已连接」即成功。
-4. 默认需要**管理员账号**：未开启多用户时 ST 的内置用户就是管理员，无需额外设置。
+4. **重启酒馆进程**（`plugins/` 只在启动时扫描，刷新网页没用），再刷新页面（必要时 Ctrl+F5）。
+   控制台出现 `Initializing plugin from .../plugins/f2b/index.mjs`、面板显示「后端已连接 v1.1.0」即成功。
+
+> **为什么服务端那半不能像扩展一样在网页里点一下就装好？**
+> 酒馆只为前端扩展开放了远程安装接口（`POST /api/extensions/install`，落点固定是
+> `public/scripts/extensions/third-party`），`plugins/` 目录**没有任何 HTTP 写入路径**；
+> 服务端插件也不可能在自己尚未被加载时把自己装进去（先有鸡还是先有蛋）。
+> 所以这一步必须由你在宿主机跑一条命令 —— 面板检测到后端缺失时会把命令直接摆出来，点「复制命令」即可。
+
+5. 默认需要**管理员账号**：未开启多用户时 ST 的内置用户就是管理员，无需额外设置。
    若开启了多用户，请用管理员登录，否则服务端插件一律返回 403（面板会显示“需要管理员账号”）。
 
 ## 三、使用
@@ -169,7 +196,9 @@ SillyTavern 服务端转发），并在酒馆页面左上角的悬浮球里统�
 | --- | --- |
 | 人物卡里的「小手机 / 手机UI」这类脚本用了 API，但面板里没有 | 这类脚本把配置存在浏览器 `localStorage` 里。本扩展会扫 localStorage；若仍然没有，直接触发一次它的生成——直连失败会被自动登记成「运行时捕获」配置 |
 | 某个插件明明配了 API 却不在面板里 | 该插件在「扩展」列表里是停用状态（停用的插件不转换），或地址是本机地址（只在“疑似”里提示） |
-| 面板显示「未检测到后端插件 f2b-takeover」 | 没放到 `<SillyTavern>/plugins/`，或 `enableServerPlugins: false`，或没重启服务 |
+| 面板显示「未检测到后端插件 f2b-takeover」 | 后端那半还没装：在酒馆根目录跑 `node plugins.js install https://github.com/gbfh456/f2b.git`（面板里点「复制命令」即可）。已装过仍报错，则是没放在 `plugins/` 下、`enableServerPlugins: false`，或没重启酒馆进程 |
+| 安装提示里点「复制命令」没反应 | 非 https 页面上 `navigator.clipboard` 可能不可用，代码会退化成 `execCommand`；都失败时按提示手动复制（命令就是上一行那句） |
+| `plugins/` 里同时有 `f2b` 和旧的 `f2b-takeover` | 两个目录声明了同一个插件 id，后加载的那个会报 `plugin ID is already in use`。删掉旧目录，只留 `plugins/f2b` |
 | 显示「需要管理员账号」 | 多用户模式下用了普通账号登录，改用管理员账号 |
 | 测试连接 401 / 403 | Key 不对或没填；填好 Key 点保存再测 |
 | 转换后插件仍报 CORS | 该请求没命中配置：检查卡片「高级 → 前端匹配」是否覆盖了插件实际请求的地址 |

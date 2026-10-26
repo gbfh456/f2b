@@ -10,7 +10,7 @@
 import { callPopup } from '../../../../../script.js';
 import { POPUP_TYPE } from '../../../../popup.js';
 import { convertSuggestion, deleteAllEntries, deleteEntry, forgetAllTombstones, forgetTombstone, probeFrontendUsage, restoreTombstone, runScan, saveEntry } from './sync.js';
-import { checkBackend, fetchModels, getBackendInfo, isBackendReady, PLUGIN_ID, testConnection } from './backend.js';
+import { checkBackend, fetchModels, getBackendInfo, INSTALL_COMMAND, isBackendReady, PLUGIN_ID, testConnection } from './backend.js';
 import { addTombstone, findEntry, getSettings, getTombstoneInfo, invalidateRoutes, labelOf, saveSettings, upsertEntry } from './store.js';
 import { currentCharacter, isExtensionDisabled } from './detect.js';
 import { clamp, escapeHtml, formatMs, keyHintOf, modelsUrlOf, normalizeEndpoint, parseBase, probeUrlOf, sanitizeHeadersObject, toBackendUrl } from './util.js';
@@ -303,6 +303,79 @@ function backendStatusText() {
         return `<span class="f2b-dot f2b-dot-bad"></span>后端异常：${escapeHtml(info.error)}`;
     }
     return '<span class="f2b-dot f2b-dot-warn"></span>正在检测后端…';
+}
+
+/**
+ * 「后端插件没装」时面板顶部那块提示：为什么不可能是“一键下载”、怎么装、装完怎么重试。
+ *
+ * 酒馆只对**前端扩展**开放了网页安装接口（POST /api/extensions/install 固定写到
+ * public/scripts/extensions/third-party），plugins/ 目录没有任何 HTTP 写入路径，
+ * 服务端插件无法由前端自己下载进来 —— 所以这里把安装命令直接摆出来，复制即可。
+ * @returns {string} HTML
+ */
+function installHintHtml() {
+    return `
+        <div class="f2b-hint-title"><i class="fa-solid fa-triangle-exclamation"></i> 服务端插件 <code>${PLUGIN_ID}</code> 未安装</div>
+        <div class="f2b-hint-line">本扩展 = 前端界面 + 服务端插件，两部分在 <b>同一个仓库</b>里。酒馆的「安装扩展」只能装前端
+            （固定写入 <code>public/scripts/extensions/third-party</code>），<code>plugins/</code> 没有远程安装接口，
+            所以这一步得在酒馆根目录执行一条命令：</div>
+        <div class="f2b-hint-cmd"><code>${escapeHtml(INSTALL_COMMAND)}</code></div>
+        <div class="f2b-hint-actions">
+            <button class="menu_button" data-act="copy-install"><i class="fa-solid fa-copy"></i> 复制命令</button>
+            <button class="menu_button" data-act="recheck"><i class="fa-solid fa-rotate"></i> 已装好，重新检测</button>
+        </div>
+        <div class="f2b-hint-line f2b-dim">装完要<b>重启酒馆进程</b>（<code>plugins/</code> 只在启动时扫描）。若已经装过仍报这个错，
+            通常是没放在 <code>plugins/</code> 下、<code>enableServerPlugins: false</code>，或者没重启。</div>`;
+}
+
+/**
+ * 复制文本到剪贴板；非 https 页面下 navigator.clipboard 不可用时退化为 textarea + execCommand。
+ * @param {string} text 文本
+ * @returns {Promise<void>} 完成
+ */
+async function copyText(text) {
+    let ok = false;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            ok = true;
+        }
+    } catch {
+        ok = false;
+    }
+    if (!ok) {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        try {
+            ok = document.execCommand('copy');
+        } catch {
+            ok = false;
+        }
+        area.remove();
+    }
+    notify(ok ? '命令已复制，到酒馆根目录粘贴执行' : `复制失败，请手动复制：${text}`, ok ? 'success' : 'warning');
+}
+
+/**
+ * 装好后手动重新探测后端（插件只在启动时加载，所以这里只能重试、不能代装）。
+ * @returns {Promise<void>} 完成
+ */
+async function recheckBackend() {
+    const info = await checkBackend();
+    refresh();
+    if (info.state === 'ready') {
+        notify(`后端已连接 v${info.version || '?'}`, 'success');
+        return;
+    }
+    if (info.state === 'missing') {
+        notify('仍然探测不到后端：确认已把插件放进 plugins/ 并重启过酒馆进程', 'warning');
+        return;
+    }
+    notify(`后端仍是异常状态：${info.error || info.state}`, 'warning');
 }
 
 /**
@@ -785,6 +858,13 @@ function render() {
     if (status) {
         status.innerHTML = backendStatusText();
         status.title = status.textContent?.trim() ?? '';
+    }
+    // 后端插件没装：把安装命令摆在面板里，别让人去翻 README 猜为什么连不上。
+    const installHint = panelEl.querySelector('[data-role="install"]');
+    if (installHint) {
+        const missing = getBackendInfo().state === 'missing';
+        installHint.hidden = !missing;
+        if (missing) installHint.innerHTML = installHintHtml();
     }
     const scanButton = panelEl.querySelector('[data-act="scan"]');
     if (scanButton) scanButton.title = scanButtonTitle();
@@ -1284,6 +1364,14 @@ async function onPanelClick(event) {
     const action = actionEl?.dataset.act;
     // 折叠区标题右侧的一键删除按钮在 <summary> 里，点它别顺带把这一块折叠起来。
     if (actionEl instanceof HTMLElement && actionEl.closest('summary')) event.preventDefault();
+    if (action === 'copy-install') {
+        await copyText(INSTALL_COMMAND);
+        return;
+    }
+    if (action === 'recheck') {
+        await recheckBackend();
+        return;
+    }
     if (action === 'close') {
         closePanel();
         return;
@@ -1452,6 +1540,7 @@ export function mount() {
             </div>
         </div>
         <div class="f2b-panel-sub" data-role="summary"></div>
+        <div class="f2b-install-hint" data-role="install" hidden></div>
         <div class="f2b-panel-body" data-role="list"></div>
         <div class="f2b-panel-foot">
             <span class="f2b-dim">删除配置即回到插件原本的前端直连</span>
