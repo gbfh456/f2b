@@ -1125,3 +1125,42 @@
         background: linear-gradient(160deg, #3b82f6, #1d4ed8);
     }
 }
+
+/* 卸载提示块：和安装提示同构，但配色中性（不是错误，是主动操作） */
+.f2b-uninstall-hint {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--f2b-line-soft);
+    background: var(--f2b-glass-soft);
+    border-left: 3px solid var(--f2b-bad);
+    font-size: 11px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.f2b-uninstall-hint[hidden] {
+    display: none;
+}
+
+.f2b-uninstall-hint .f2b-hint-title {
+    color: var(--f2b-bad);
+}
+
+/* 面板底部那枚文字按钮：不抢眼，但要能点 */
+.f2b-link-btn {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--f2b-accent);
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.f2b-link-btn:hover {
+    color: var(--f2b-fg);
+}

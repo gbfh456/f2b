@@ -322,16 +322,26 @@ f2b/                     ← 仓库根 = 前端扩展 + 服务端插件
 
 ## 十一、卸载
 
+**面板里就有入口**：悬浮球面板底部那枚「卸载」，或「扩展设置 → F2B 前端 API 转后端 → 卸载说明」，
+点开就是完整命令 + 一键复制。命令行侧**不需要任何参数**：
+
 ```bash
-node public/scripts/extensions/third-party/f2b/uninstall.mjs --dry-run   # 先看要删什么
-node public/scripts/extensions/third-party/f2b/uninstall.mjs            # 确认后删
+node public/scripts/extensions/third-party/f2b/uninstall.mjs
+```
+
+它会先打印「将要处理」的清单，再问一次 `y/N`，答 `y` 才动手（不打参数、不记得任何开关也能用）。
+其它模式按需：
+
+```bash
+node .../uninstall.mjs --dry-run     # 只列清单，不删
+node .../uninstall.mjs --keep-keys   # 保留 data/<用户>/f2b-takeover/ 里已存的密钥
+node .../uninstall.mjs --yes         # 免确认（也可 echo y | node .../uninstall.mjs）
+node .../uninstall.mjs --force       # 酒馆还开着也照删（不推荐）
 ```
 
 会清掉：`plugins/<目录>`（按 `info.id` 认，不写死目录名）、前端扩展目录（含 `.git`）、
 `data/<用户>/f2b-takeover/`（配置 + 明文密钥）、`data/<用户>/settings.json` 里的
 `extension_settings.f2b` 与停用列表里的 `third-party/f2b`（改前留 `.bak`）。
-
-参数：`--yes` 免确认、`--keep-keys` 保留已存的密钥、`--force` 酒馆还开着也照删。
 
 两件脚本管不了的事：**正在运行的进程里已加载的路由要重启才消失**（所以脚本发现端口在监听会拒绝执行）；
 `data/<用户>/backups/` 里的历史 settings 快照可能仍含 f2b 的配置项（但不含密钥文件）。

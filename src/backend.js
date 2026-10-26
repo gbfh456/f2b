@@ -23,6 +23,8 @@ export const PLUGIN_BASE = `/api/plugins/${PLUGIN_ID}`;
 export const REPO_URL = 'https://github.com/gbfh456/f2b.git';
 /** 在酒馆根目录执行这一条命令即可装上服务端插件（克隆到 plugins/f2b）。 */
 export const INSTALL_COMMAND = `node plugins.js install ${REPO_URL}`;
+/** 卸载脚本相对酒馆根目录的路径；不带参数执行即可（先列清单再问 y/N）。 */
+export const UNINSTALL_COMMAND = 'node public/scripts/extensions/third-party/f2b/uninstall.mjs';
 
 /** @type {{state: 'unknown'|'ready'|'missing'|'forbidden'|'error', version: string, error: string, node: string}} */
 const backendInfo = { state: 'unknown', version: '', error: '', node: '' };

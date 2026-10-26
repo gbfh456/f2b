@@ -5,10 +5,12 @@
  * 位置：<SillyTavern>/public/scripts/extensions/third-party/f2b/uninstall.mjs
  * 用法（在任意目录执行都行，脚本自己会定位酒馆根目录）：
  *
- *   node public/scripts/extensions/third-party/f2b/uninstall.mjs            # 交互确认后删除
+ *   node public/scripts/extensions/third-party/f2b/uninstall.mjs            # 不带参数：列清单 → 问 y/N → 删
  *   node public/scripts/extensions/third-party/f2b/uninstall.mjs --dry-run  # 只看要删什么
- *   node public/scripts/extensions/third-party/f2b/uninstall.mjs --yes      # 不确认，直接删
+ *   node public/scripts/extensions/third-party/f2b/uninstall.mjs --yes      # 不确认，直接删（也可 echo y | ...）
  *   node public/scripts/extensions/third-party/f2b/uninstall.mjs --keep-keys # 保留已保存的密钥
+ *
+ * 不带任何参数就是完整流程：先打印将删除的清单，再问一次 y/N，回车之外的答案一律当取消。
  *
  * 清掉的东西：
  *   1. <ST>/plugins/<任意目录>         —— 按 index.mjs 里的 info.id 认，不写死目录名
@@ -335,10 +337,23 @@ async function removeDir(target) {
 
 /**
  * 询问 y/N。
+ *
+ * 交互终端里是普通的「敲字回车」；非交互（`echo y | node uninstall.mjs`、批处理/计划任务）时
+ * 改成读一行标准输入，读到 y/yes 才继续，读不到就当取消 —— 免去记参数。
  * @param {string} question 问题
  * @returns {Promise<boolean>} 是否确认
  */
 async function confirm(question) {
+    if (!process.stdin.isTTY) {
+        const chunks = [];
+        try {
+            for await (const chunk of process.stdin) chunks.push(chunk);
+        } catch {
+            return false;
+        }
+        const answer = Buffer.concat(chunks).toString('utf8').trim().toLowerCase();
+        return answer === 'y' || answer === 'yes';
+    }
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
         const answer = (await rl.question(question)).trim().toLowerCase();
@@ -423,15 +438,10 @@ async function main() {
 
     console.log(dim('注意：扩展目录里的 .git 与未推送的本地改动会一并删除；本脚本自己也会被删掉。'));
     if (!ASSUME_YES) {
-        if (!process.stdin.isTTY) {
-            console.log(yellow('当前不是交互终端，加 --yes 才会执行。'));
-            console.log();
-            process.exitCode = 1;
-            return;
-        }
         const ok = await confirm(`确认删除以上内容？${dim('[y/N]')} `);
         if (!ok) {
             console.log('已取消，什么都没删。');
+            if (!process.stdin.isTTY) console.log(dim('（非交互场景想直接删就加 --yes，或在标准输入里给一个 y）'));
             console.log();
             return;
         }

@@ -10,7 +10,7 @@
 import { callPopup } from '../../../../../script.js';
 import { POPUP_TYPE } from '../../../../popup.js';
 import { convertSuggestion, deleteAllEntries, deleteEntry, forgetAllTombstones, forgetTombstone, probeFrontendUsage, restoreTombstone, runScan, saveEntry } from './sync.js';
-import { checkBackend, fetchModels, getBackendInfo, INSTALL_COMMAND, isBackendReady, PLUGIN_ID, testConnection } from './backend.js';
+import { checkBackend, fetchModels, getBackendInfo, INSTALL_COMMAND, isBackendReady, PLUGIN_ID, testConnection, UNINSTALL_COMMAND } from './backend.js';
 import { addTombstone, findEntry, getSettings, getTombstoneInfo, invalidateRoutes, labelOf, saveSettings, upsertEntry } from './store.js';
 import { currentCharacter, isExtensionDisabled } from './detect.js';
 import { clamp, escapeHtml, formatMs, keyHintOf, modelsUrlOf, normalizeEndpoint, parseBase, probeUrlOf, sanitizeHeadersObject, toBackendUrl } from './util.js';
@@ -326,6 +326,41 @@ function installHintHtml() {
         </div>
         <div class="f2b-hint-line f2b-dim">装完要<b>重启酒馆进程</b>（<code>plugins/</code> 只在启动时扫描）。若已经装过仍报这个错，
             通常是没放在 <code>plugins/</code> 下、<code>enableServerPlugins: false</code>，或者没重启。</div>`;
+}
+
+/**
+ * 「卸载」提示块：把卸载命令、会删什么、清不掉什么一次说清。
+ * 面板底部有「卸载」入口，扩展设置里也有一个「卸载说明」按钮，都打开这一块。
+ * @returns {string} HTML
+ */
+function uninstallHintHtml() {
+    return `
+        <div class="f2b-hint-title"><i class="fa-solid fa-trash-can"></i> 卸载 f2b</div>
+        <div class="f2b-hint-line">在酒馆根目录执行（<b>不需要任何参数</b>：先列清单，再问 y/N）：</div>
+        <div class="f2b-hint-cmd"><code>${escapeHtml(UNINSTALL_COMMAND)}</code></div>
+        <div class="f2b-hint-actions">
+            <button class="menu_button" data-act="copy-uninstall"><i class="fa-solid fa-copy"></i> 复制命令</button>
+            <button class="menu_button" data-act="uninstall-close"><i class="fa-solid fa-xmark"></i> 收起</button>
+        </div>
+        <div class="f2b-hint-line">会删掉：<code>plugins/&lt;目录&gt;</code>（按插件 id 认）、本扩展目录、
+            <code>data/&lt;用户&gt;/f2b-takeover/</code>（配置 + 明文密钥，<code>--keep-keys</code> 可留）、
+            <code>settings.json</code> 里的 <code>extension_settings.f2b</code> 与停用列表项。</div>
+        <div class="f2b-hint-line f2b-dim">先<b>停掉酒馆</b>再执行（脚本检测到端口在监听会拒绝；<code>--force</code> 可越过）。
+            备份目录 <code>data/&lt;用户&gt;/backups/</code> 不动，历史 settings 快照里可能还有 f2b 的配置项。</div>`;
+}
+
+/**
+ * 显示/收起面板里的卸载提示块。
+ * @param {boolean} [force] 指定展开或收起；省略则切换
+ * @returns {void}
+ */
+function toggleUninstallHint(force) {
+    const el = panelEl?.querySelector('[data-role="uninstall"]');
+    if (!el) return;
+    if (!el.firstElementChild) el.innerHTML = uninstallHintHtml();
+    const show = typeof force === 'boolean' ? force : el.hidden;
+    el.hidden = !show;
+    if (show) el.scrollIntoView({ block: 'nearest' });
 }
 
 /**
@@ -1364,6 +1399,18 @@ async function onPanelClick(event) {
     const action = actionEl?.dataset.act;
     // 折叠区标题右侧的一键删除按钮在 <summary> 里，点它别顺带把这一块折叠起来。
     if (actionEl instanceof HTMLElement && actionEl.closest('summary')) event.preventDefault();
+    if (action === 'uninstall-help') {
+        toggleUninstallHint();
+        return;
+    }
+    if (action === 'uninstall-close') {
+        toggleUninstallHint(false);
+        return;
+    }
+    if (action === 'copy-uninstall') {
+        await copyText(UNINSTALL_COMMAND);
+        return;
+    }
     if (action === 'copy-install') {
         await copyText(INSTALL_COMMAND);
         return;
@@ -1541,9 +1588,11 @@ export function mount() {
         </div>
         <div class="f2b-panel-sub" data-role="summary"></div>
         <div class="f2b-install-hint" data-role="install" hidden></div>
+        <div class="f2b-uninstall-hint" data-role="uninstall" hidden></div>
         <div class="f2b-panel-body" data-role="list"></div>
         <div class="f2b-panel-foot">
             <span class="f2b-dim">删除配置即回到插件原本的前端直连</span>
+            <button type="button" class="f2b-link-btn" data-act="uninstall-help" title="查看卸载方法（会删掉服务端插件、扩展目录与已存密钥）">卸载</button>
             <span class="f2b-dim f2b-foot-grip" data-role="resize" title="拖动调整面板大小（双击恢复默认）"></span>
         </div>`;
     document.body.appendChild(panelEl);
@@ -1637,6 +1686,7 @@ export function mountDrawerSettings() {
                 <div class="f2b-drawer-actions">
                     <button class="menu_button" id="f2b-drawer-open">配置面板</button>
                     <button class="menu_button" id="f2b-drawer-rescan">重新扫描</button>
+                    <button class="menu_button" id="f2b-drawer-uninstall" title="在面板里查看卸载命令（会删掉服务端插件、扩展目录与已存密钥）">卸载说明</button>
                 </div>
                 <div class="f2b-drawer-hint">后端插件：<code>${PLUGIN_ID}</code>（需放在 &lt;SillyTavern&gt;/plugins 并开启 enableServerPlugins）</div>
             </div>
@@ -1666,6 +1716,10 @@ export function mountDrawerSettings() {
     });
     block.querySelector('#f2b-drawer-open')?.addEventListener('click', () => openPanel());
     block.querySelector('#f2b-drawer-rescan')?.addEventListener('click', () => { void doScan(true); });
+    block.querySelector('#f2b-drawer-uninstall')?.addEventListener('click', () => {
+        openPanel();
+        toggleUninstallHint(true);
+    });
 }
 
 /**
