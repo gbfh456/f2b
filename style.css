@@ -277,14 +277,31 @@
 .f2b-hint-actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
     gap: 6px;
     margin: 6px 0;
 }
 
+/* 酒馆的 .menu_button 自带 width:min-content + margin:5px 0：
+   中文在里面会被压成一列、两个按钮还会上下错位，所以这里按文字宽度排、左对齐。
+   （.f2b-drawer-actions 与 .f2b-card-foot 里的按钮是同样的处理。） */
 .f2b-hint-actions .menu_button {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 24px;
     margin: 0;
+    gap: 5px;
     font-size: 11px;
-    padding: 4px 9px;
+    line-height: 1.4;
+    padding: 3px 9px;
+    white-space: nowrap;
+}
+
+/* 副按钮（收起 / 重新检测）弱化一点，主按钮（复制命令）保持原样，
+   这样一行里两个按钮不会看起来一样重。 */
+.f2b-hint-actions .menu_button + .menu_button {
+    opacity: 0.85;
 }
 
 .f2b-panel-body {

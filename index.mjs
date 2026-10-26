@@ -18,7 +18,7 @@
 import { fail, handleProxy, handleTest } from './proxy.mjs';
 import { clearLog, getLog, listEntries, saveEntry, storageDir } from './store.mjs';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 /** Reject request bodies beyond this size (in characters of the serialized JSON body). */
 const MAX_BODY_CHARS = 64 * 1024 * 1024;
 
