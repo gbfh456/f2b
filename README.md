@@ -297,10 +297,15 @@ SillyTavern 服务端转发），并在酒馆页面左上角的悬浮球里统�
 ## 十、文件结构
 
 ```
-f2b/
-├── manifest.json        扩展清单（loading_order: -50，尽早接管 fetch）
-├── index.js             入口：装转发层、挂 UI、订阅事件、首轮扫描
+f2b/                     ← 仓库根 = 前端扩展 + 服务端插件
+├── manifest.json        扩展清单（js 指向 frontend.js，loading_order: -50）
+├── frontend.js          前端入口：装转发层、挂 UI、订阅事件、首轮扫描
 ├── style.css            悬浮球 / 面板 / 卡片样式
+├── index.mjs            ★服务端插件入口（info.id = f2b-takeover）：路由与鉴权
+├── proxy.mjs            ★服务端：透明流式代理 + 连通性测试
+├── store.mjs            ★服务端：按用户存 config.json / secrets.json
+├── uninstall.mjs        卸载脚本（见下节）
+├── SERVER.md            ★后端接口契约（原 plugins/f2b-takeover/README.md）
 └── src/
     ├── util.js          URL 规整、匹配前缀、base64、深度遍历等纯函数
     ├── native.js        原生 fetch 引用（避免自己拦自己）
@@ -311,3 +316,23 @@ f2b/
     ├── intercept.js     fetch / XHR 接管与响应重建
     └── ui.js            悬浮球、面板、配置卡片
 ```
+
+> 打 ★ 的四个文件是**服务端**部分：装到 `plugins/<目录>/` 时由酒馆的插件加载器加载；
+> 装到 `third-party/f2b/` 时浏览器不会请求它们。
+
+## 十一、卸载
+
+```bash
+node public/scripts/extensions/third-party/f2b/uninstall.mjs --dry-run   # 先看要删什么
+node public/scripts/extensions/third-party/f2b/uninstall.mjs            # 确认后删
+```
+
+会清掉：`plugins/<目录>`（按 `info.id` 认，不写死目录名）、前端扩展目录（含 `.git`）、
+`data/<用户>/f2b-takeover/`（配置 + 明文密钥）、`data/<用户>/settings.json` 里的
+`extension_settings.f2b` 与停用列表里的 `third-party/f2b`（改前留 `.bak`）。
+
+参数：`--yes` 免确认、`--keep-keys` 保留已存的密钥、`--force` 酒馆还开着也照删。
+
+两件脚本管不了的事：**正在运行的进程里已加载的路由要重启才消失**（所以脚本发现端口在监听会拒绝执行）；
+`data/<用户>/backups/` 里的历史 settings 快照可能仍含 f2b 的配置项（但不含密钥文件）。
+浏览器侧没有残留：f2b 只读 `localStorage`，不往里写任何东西。
