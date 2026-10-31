@@ -211,10 +211,15 @@ function openPanel() {
     if (Number.isFinite(settings.panel?.x) && Number.isFinite(settings.panel?.y)) {
         panelEl.style.left = `${settings.panel.x}px`;
         panelEl.style.top = `${settings.panel.y}px`;
-    } else if (ballEl) {
+    } else if (ballEl && ballEl.style.display !== 'none') {
         const rect = ballEl.getBoundingClientRect();
         panelEl.style.left = `${Math.round(rect.right + 10)}px`;
         panelEl.style.top = `${Math.round(rect.top)}px`;
+    } else {
+        // 悬浮球被隐藏时没有可参照的位置，直接摆在视口中上部居中。
+        const width = panelEl.offsetWidth || 360;
+        panelEl.style.left = `${Math.round(Math.max(12, (window.innerWidth - width) / 2))}px`;
+        panelEl.style.top = `${Math.round(Math.max(12, window.innerHeight * 0.12))}px`;
     }
     // 记住的宽高（拖动右下角调整过才会有值）。
     const width = Number(settings.panel?.w);
@@ -247,16 +252,35 @@ function togglePanel() {
 }
 
 /**
- * 设置悬浮球可见性。
- * @param {boolean} visible 是否可见
+ * 同步「显示悬浮球」勾选框：面板里的和扩展设置抽屉里的各一份。
+ * 任意一处改动后都要调它，否则另一处还停在上一次的状态。
  * @returns {void}
  */
-export function setBallVisible(visible) {
+function syncBallToggles() {
+    const visible = getSettings().ball.visible !== false;
+    const toggles = [
+        panelEl?.querySelector('[data-role="ball-visible"]'),
+        document.querySelector('#f2b-drawer-ball'),
+    ];
+    for (const el of toggles) {
+        if (el instanceof HTMLInputElement) el.checked = visible;
+    }
+}
+
+/**
+ * 设置悬浮球可见性。
+ * @param {boolean} visible 是否可见
+ * @param {object} [options] 选项
+ * @param {boolean} [options.keepPanel] 隐藏时是否保留面板（面板里的勾选框得能再勾回来）
+ * @returns {void}
+ */
+export function setBallVisible(visible, { keepPanel = false } = {}) {
     const settings = getSettings();
     settings.ball.visible = visible !== false;
     saveSettings();
     if (ballEl) ballEl.style.display = settings.ball.visible ? '' : 'none';
-    if (!settings.ball.visible) closePanel();
+    if (!settings.ball.visible && !keepPanel) closePanel();
+    syncBallToggles();
 }
 
 /**
@@ -933,6 +957,8 @@ function render() {
         summaryEl.innerHTML = `<span class="f2b-dim">${escapeHtml(summary)}</span>`;
         summaryEl.title = summary;
     }
+    // 抽屉里改过开关后，面板顶部那个勾选框要跟着走。
+    syncBallToggles();
     const cards = entriesBodyHtml(entries);
     const entriesSection = entries.length === 0 ? '' : sectionHtml({
         key: 'entries',
@@ -1482,7 +1508,21 @@ async function onPanelClick(event) {
  */
 function onPanelChange(event) {
     const input = event.target;
-    if (!(input instanceof HTMLInputElement) || !input.classList.contains('f2b-in-enabled')) return;
+    if (!(input instanceof HTMLInputElement)) return;
+    // 面板顶部的「显示悬浮球」：隐藏时保留面板，否则勾选框会跟着悬浮球一起没了、
+    // 想勾回来还得去翻扩展设置。抽屉里那个勾选框仍按老规矩：隐藏即收起面板。
+    if (input.dataset.role === 'ball-visible') {
+        const visible = input.checked;
+        setBallVisible(visible, { keepPanel: true });
+        notify(
+            visible
+                ? '悬浮球已显示在页面左上角'
+                : '悬浮球已隐藏；想再打开就用这个勾选框，或酒馆「扩展设置 → F2B 前端 API 转后端」里的同名勾选框',
+            visible ? 'success' : 'info',
+        );
+        return;
+    }
+    if (!input.classList.contains('f2b-in-enabled')) return;
     const card = input.closest('.f2b-card');
     if (!(card instanceof HTMLElement)) return;
     const entry = findEntry(card.dataset.cfgId ?? '');
@@ -1586,7 +1626,13 @@ export function mount() {
                 <button class="f2b-icon-btn" data-act="close" title="关闭"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
-        <div class="f2b-panel-sub" data-role="summary"></div>
+        <div class="f2b-panel-sub">
+            <span class="f2b-panel-summary" data-role="summary"></span>
+            <label class="f2b-ball-toggle" title="关掉后左上角悬浮球隐藏；想再打开就用这个勾选框，或酒馆「扩展设置 → F2B 前端 API 转后端」里的同名勾选框">
+                <input type="checkbox" data-role="ball-visible" ${settings.ball.visible ? 'checked' : ''}>
+                <span>显示悬浮球</span>
+            </label>
+        </div>
         <div class="f2b-install-hint" data-role="install" hidden></div>
         <div class="f2b-uninstall-hint" data-role="uninstall" hidden></div>
         <div class="f2b-panel-body" data-role="list"></div>

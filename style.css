@@ -206,18 +206,56 @@
     color: var(--f2b-bad);
 }
 
-/* 汇总行：整行完整显示（信息类文本不裁切），窄屏时允许换行 */
+/* 汇总行：左边是汇总文字（整行完整显示，窄屏时换行），右边是「显示悬浮球」勾选框 */
 .f2b-panel-sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     padding: 6px 12px;
     font-size: 11px;
     line-height: 1.45;
     border-bottom: 1px solid var(--f2b-line-soft);
     background: rgba(255, 255, 255, 0.03);
     opacity: 0.9;
+}
+
+.f2b-panel-summary {
+    flex: 1 1 150px;
+    min-width: 0;
     white-space: normal;
     overflow: visible;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+/* 显示悬浮球：原生 checkbox（不是开关），点文字也能勾；位置固定在汇总行右侧 */
+.f2b-ball-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    padding: 1px 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    opacity: 0.92;
+}
+
+.f2b-ball-toggle:hover {
+    opacity: 1;
+}
+
+.f2b-ball-toggle input {
+    width: 13px;
+    height: 13px;
+    min-width: 13px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--f2b-accent);
+    cursor: pointer;
 }
 
 /* 后端插件没装时的安装提示：整块贴在面板顶部，命令可选中复制 */
